@@ -247,6 +247,12 @@
       el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
     }
 
+    // Catch silently broken image URLs and re-fetch fresh ones
+    el.slide.addEventListener("error", () => {
+      setStatus("photo URLs expired — reloading album...", "error");
+      fetchAndStoreAlbum();
+    });
+
     async function ensureWidgetExists() {
       const snap = await getDoc(widgetRef);
       if (!snap.exists()) {
@@ -265,26 +271,17 @@
       });
     }
 
-    async function loadSharedAlbumIfNeeded() {
+    // Always fetch fresh URLs from the Cloud Function on load.
+    // Google Photos CDN URLs expire, so we never rely on the Firebase cache.
+    async function fetchAndStoreAlbum() {
       if (!ALBUM_URL || ALBUM_URL.includes("PASTE_")) {
         setStatus("Add ALBUM_URL inside the HTML file.", "error");
         el.emptyState.textContent = "missing album link";
         return;
       }
 
-      // Skip fetch if this album is already cached in Firebase
-      const albumSnap = await getDoc(albumRef);
-      const currentAlbumUrl = albumSnap.exists() ? albumSnap.data().albumUrl : "";
-      const currentPhotos = albumSnap.exists()
-        ? normalizePhotoList(albumSnap.data().photos || [])
-        : [];
-
-      if (currentAlbumUrl === ALBUM_URL && currentPhotos.length) {
-        return; // Already up to date — no need to re-fetch
-      }
-
       try {
-        setStatus("Loading shared album...");
+        setStatus("loading album...");
         el.emptyState.textContent = "loading album ✿";
 
         const controller = new AbortController();
@@ -315,13 +312,14 @@
           throw new Error("No photos found. Check if the Google Photos album is shared publicly.");
         }
 
+        // Writing to Firebase triggers onSnapshot → render() automatically
         await setDoc(albumRef, {
           photos: loadedPhotos,
           albumUrl: ALBUM_URL,
           updatedAt: serverTimestamp()
         }, { merge: true });
 
-        setStatus(`Album loaded: ${loadedPhotos.length} photos.`, "success");
+        setStatus(`${loadedPhotos.length} photos loaded ✿`, "success");
       } catch (error) {
         console.error(error);
         setStatus(error.message, "error");
@@ -347,7 +345,8 @@
       render();
     });
 
-    loadSharedAlbumIfNeeded();
+    // Always fetch fresh on load — no cache skip
+    fetchAndStoreAlbum();
   </script>
 </body>
 </html>
