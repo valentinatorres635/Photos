@@ -162,7 +162,7 @@
       margin-bottom: 5px;
     }
 
-    input, textarea {
+    input {
       width: 100%;
       background: var(--cream);
       border: 3px solid var(--ink);
@@ -172,8 +172,6 @@
       outline: none;
       margin-bottom: 10px;
     }
-
-    textarea { min-height: 84px; resize: vertical; }
 
     .hint, .tiny {
       font-size: 11px;
@@ -223,18 +221,12 @@
 
       <p class="hint">This version syncs through Firestore, so everyone sees the same picture.</p>
 
-      <label for="manualUrls">Manual fallback image URLs, one per line</label>
-      <textarea id="manualUrls" placeholder="https://lh3.googleusercontent.com/...
-https://lh3.googleusercontent.com/..."></textarea>
-      <button class="pixel-btn secondary" id="loadManualBtn" type="button">load manual urls</button>
-
       <div class="status" id="status"></div>
-      <div class="tiny">Only use the edit panel yourself. Viewers in Notion will follow the shared slideshow.</div>
+      <div class="tiny">Only you should use edit. Everyone else will see the synced slideshow.</div>
     </section>
   </main>
 
   <script>
-    // This tiny script makes the edit button work even if Firebase has an error later.
     document.getElementById("settingsBtn").addEventListener("click", () => {
       document.getElementById("settingsPanel").classList.toggle("open");
     });
@@ -253,13 +245,12 @@ https://lh3.googleusercontent.com/..."></textarea>
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
-      authDomain: "slideshow-b78c0.firebaseapp.com",
-      projectId: "slideshow-b78c0",
-      storageBucket: "slideshow-b78c0.firebasestorage.app",
-      messagingSenderId: "50555124539",
-      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
-      measurementId: "G-7WB37JRGZJ"
+      apiKey: "PASTE_YOUR_API_KEY",
+      authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+      projectId: "PASTE_YOUR_PROJECT_ID",
+      storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+      messagingSenderId: "PASTE_YOUR_SENDER_ID",
+      appId: "PASTE_YOUR_APP_ID"
     };
 
     const ALBUM_ENDPOINT = "PASTE_YOUR_FIREBASE_FUNCTION_URL";
@@ -271,12 +262,8 @@ https://lh3.googleusercontent.com/..."></textarea>
     const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
 
     const el = {
-      settingsBtn: document.getElementById("settingsBtn"),
-      settingsPanel: document.getElementById("settingsPanel"),
       albumUrl: document.getElementById("albumUrl"),
       loadAlbumBtn: document.getElementById("loadAlbumBtn"),
-      manualUrls: document.getElementById("manualUrls"),
-      loadManualBtn: document.getElementById("loadManualBtn"),
       status: document.getElementById("status"),
       slide: document.getElementById("slide"),
       emptyState: document.getElementById("emptyState"),
@@ -300,14 +287,8 @@ https://lh3.googleusercontent.com/..."></textarea>
 
     function normalizePhotoList(items) {
       return items
-        .map((item, i) => {
-          if (typeof item === "string") return { url: item.trim(), caption: `photo ${i + 1}` };
-          return {
-            url: String(item.url || "").trim(),
-            caption: item.caption || `photo ${i + 1}`
-          };
-        })
-        .filter(item => item.url.startsWith("http"));
+        .map((item, i) => ({ url: item.url, caption: item.caption || `photo ${i + 1}` }))
+        .filter(item => item.url && item.url.startsWith("http"));
     }
 
     async function ensureDocumentExists() {
@@ -336,14 +317,9 @@ https://lh3.googleusercontent.com/..."></textarea>
       const current = photos[index];
 
       el.emptyState.style.display = "none";
-      el.slide.classList.add("fade");
-
-      window.setTimeout(() => {
-        el.slide.src = current.url;
-        el.slide.onload = () => el.slide.classList.remove("fade");
-        el.caption.textContent = current.caption || `photo ${index + 1}`;
-        el.counter.textContent = `${index + 1}/${photos.length}`;
-      }, 120);
+      el.slide.src = current.url;
+      el.caption.textContent = current.caption;
+      el.counter.textContent = `${index + 1}/${photos.length}`;
     }
 
     async function pushIndex(nextIndex) {
@@ -383,22 +359,15 @@ https://lh3.googleusercontent.com/..."></textarea>
       const albumUrl = el.albumUrl.value.trim();
 
       if (!albumUrl) {
-        setStatus("Paste a Google Photos shared album link first.", "error");
-        return;
-      }
-
-      if (!ALBUM_ENDPOINT || ALBUM_ENDPOINT.includes("PASTE_")) {
-        setStatus("Add your Firebase Function URL to ALBUM_ENDPOINT first, or use manual image URLs.", "error");
+        setStatus("Paste album link.", "error");
         return;
       }
 
       try {
-        setStatus("Loading album...");
-        const url = `${ALBUM_ENDPOINT}?url=${encodeURIComponent(albumUrl)}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Endpoint failed: ${response.status}`);
-
+        setStatus("Loading...");
+        const response = await fetch(`${ALBUM_ENDPOINT}?url=${encodeURIComponent(albumUrl)}`);
         const data = await response.json();
+
         const loaded = normalizePhotoList(data.photos || []);
         if (!loaded.length) throw new Error("No photos found.");
 
@@ -410,34 +379,13 @@ https://lh3.googleusercontent.com/..."></textarea>
           updatedAt: serverTimestamp()
         }, { merge: true });
 
-        setStatus(`Loaded ${loaded.length} photos for everyone.`, "success");
+        setStatus("Album loaded.", "success");
       } catch (error) {
-        setStatus(`Could not load album: ${error.message}`, "error");
+        setStatus(error.message, "error");
       }
     }
 
-    async function loadManualUrls() {
-      const loaded = normalizePhotoList(
-        el.manualUrls.value.split("
-").map(line => line.trim()).filter(Boolean)
-      );
-
-      if (!loaded.length) {
-        setStatus("Paste at least one valid image URL.", "error");
-        return;
-      }
-
-      await setDoc(widgetRef, {
-        photos: loaded,
-        currentIndex: 0,
-        isPlaying: true,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
-      setStatus(`Loaded ${loaded.length} manual image URLs for everyone.`, "success");
-    }
     el.loadAlbumBtn.addEventListener("click", loadAlbumFromEndpoint);
-    el.loadManualBtn.addEventListener("click", loadManualUrls);
     el.nextBtn.addEventListener("click", () => pushIndex(index + 1));
     el.prevBtn.addEventListener("click", () => pushIndex(index - 1));
     el.playBtn.addEventListener("click", () => pushPlaying(!isPlaying));
@@ -450,16 +398,10 @@ https://lh3.googleusercontent.com/..."></textarea>
 
       applyingRemoteUpdate = true;
       photos = normalizePhotoList(data.photos || []);
-      index = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
-      el.albumUrl.value = data.albumUrl || el.albumUrl.value || "";
+      index = data.currentIndex || 0;
       render(index);
-      applyPlaying(data.isPlaying !== false);
+      applyPlaying(data.isPlaying);
       applyingRemoteUpdate = false;
-
-      if (!photos.length) {
-        el.settingsPanel.classList.add("open");
-        applyPlaying(false);
-      }
     });
   </script>
 </body>
