@@ -12,7 +12,6 @@
       --panel-dark: #9bb89f;
       --ink: #3f5c45;
       --accent: #b7d3b0;
-      --accent-2: #cfe5c9;
       --cream: #f7fbf7;
       --shadow: #7c9a83;
       --error: #9d4b42;
@@ -154,8 +153,8 @@
     </section>
 
     <section class="controls">
-      <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
-      <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
+      <button class="pixel-btn" id="prevBtn" type="button">◀</button>
+      <button class="pixel-btn" id="nextBtn" type="button">▶</button>
     </section>
 
     <div class="status" id="status"></div>
@@ -184,11 +183,9 @@
     };
 
     const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
-
-    // Paste your Google Photos shared album link here.
     const ALBUM_URL = "https://photos.app.goo.gl/cTebSdwRbX3nb1rU7";
 
-    // Change this for each separate widget: "main", "widget2", "widget3", etc.
+    // Change this for each widget: "main", "widget2", "widget3", etc.
     const WIDGET_ID = "main";
 
     const app = initializeApp(firebaseConfig);
@@ -209,6 +206,8 @@
 
     let photos = [];
     let currentIndex = 0;
+    let isFetchingAlbum = false;
+    let hasTriedRefreshForCurrentImage = false;
 
     function setStatus(message, type = "") {
       el.status.textContent = message;
@@ -219,7 +218,9 @@
       return items
         .map((item, index) => ({
           url: typeof item === "string" ? item : item.url,
-          caption: typeof item === "string" ? `photo ${index + 1}` : item.caption || `photo ${index + 1}`
+          caption: typeof item === "string"
+            ? `photo ${index + 1}`
+            : item.caption || `photo ${index + 1}`
         }))
         .filter(item => item.url && item.url.startsWith("http"));
     }
@@ -232,6 +233,7 @@
     function render() {
       if (!photos.length) {
         el.emptyState.style.display = "grid";
+        el.emptyState.textContent = "loading album ✿";
         el.slide.removeAttribute("src");
         el.caption.textContent = "no album loaded";
         el.counter.textContent = "0/0";
@@ -241,17 +243,35 @@
       currentIndex = safeIndex(currentIndex);
       const current = photos[currentIndex];
 
-      el.emptyState.style.display = "none";
-      el.slide.src = current.url;
-      el.caption.textContent = current.caption;
-      el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
-    }
+      el.emptyState.style.display = "grid";
+      el.emptyState.textContent = "loading photo ✿";
 
-    // Catch silently broken image URLs and re-fetch fresh ones
-    el.slide.addEventListener("error", () => {
-      setStatus("photo URLs expired — reloading album...", "error");
-      fetchAndStoreAlbum();
-    });
+      const tester = new Image();
+
+      tester.onload = () => {
+        hasTriedRefreshForCurrentImage = false;
+        el.slide.src = current.url;
+        el.emptyState.style.display = "none";
+        el.caption.textContent = current.caption;
+        el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
+        setStatus("");
+      };
+
+      tester.onerror = () => {
+        el.emptyState.style.display = "grid";
+        el.emptyState.textContent = "refreshing photo ✿";
+        setStatus("photo URL expired — refreshing album...", "error");
+
+        if (!hasTriedRefreshForCurrentImage) {
+          hasTriedRefreshForCurrentImage = true;
+          fetchAndStoreAlbum();
+        } else {
+          setStatus("This photo could not load. Try another one.", "error");
+        }
+      };
+
+      tester.src = current.url;
+    }
 
     async function ensureWidgetExists() {
       const snap = await getDoc(widgetRef);
@@ -265,41 +285,48 @@
 
     async function updateSharedIndex(nextIndex) {
       if (!photos.length) return;
+
+      hasTriedRefreshForCurrentImage = false;
+
       await updateDoc(widgetRef, {
         currentIndex: safeIndex(nextIndex),
         updatedAt: serverTimestamp()
       });
     }
 
-    // Always fetch fresh URLs from the Cloud Function on load.
-    // Google Photos CDN URLs expire, so we never rely on the Firebase cache.
     async function fetchAndStoreAlbum() {
+      if (isFetchingAlbum) return;
+      isFetchingAlbum = true;
+
       if (!ALBUM_URL || ALBUM_URL.includes("PASTE_")) {
         setStatus("Add ALBUM_URL inside the HTML file.", "error");
         el.emptyState.textContent = "missing album link";
+        isFetchingAlbum = false;
         return;
       }
 
       try {
-        setStatus("loading album...");
+        setStatus("loading fresh album URLs...");
+        el.emptyState.style.display = "grid";
         el.emptyState.textContent = "loading album ✿";
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
 
         const response = await fetch(
-          `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}`,
+          `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}&t=${Date.now()}`,
           { signal: controller.signal }
         );
 
         clearTimeout(timeout);
 
         const text = await response.text();
+
         let data;
         try {
           data = JSON.parse(text);
         } catch {
-          throw new Error("Firebase returned HTML instead of JSON. Check the function URL.");
+          throw new Error("Firebase returned HTML instead of JSON.");
         }
 
         if (!response.ok) {
@@ -309,13 +336,13 @@
         const loadedPhotos = normalizePhotoList(data.photos || []);
 
         if (!loadedPhotos.length) {
-          throw new Error("No photos found. Check if the Google Photos album is shared publicly.");
+          throw new Error("No photos found. Check if the album is shared publicly.");
         }
 
-        // Writing to Firebase triggers onSnapshot → render() automatically
         await setDoc(albumRef, {
           photos: loadedPhotos,
           albumUrl: ALBUM_URL,
+          refreshedAt: Date.now(),
           updatedAt: serverTimestamp()
         }, { merge: true });
 
@@ -323,7 +350,10 @@
       } catch (error) {
         console.error(error);
         setStatus(error.message, "error");
+        el.emptyState.style.display = "grid";
         el.emptyState.textContent = error.message;
+      } finally {
+        isFetchingAlbum = false;
       }
     }
 
@@ -333,19 +363,24 @@
     await ensureWidgetExists();
 
     onSnapshot(albumRef, (snap) => {
-      if (!snap.exists()) { photos = []; render(); return; }
+      if (!snap.exists()) {
+        photos = [];
+        render();
+        return;
+      }
+
       photos = normalizePhotoList(snap.data().photos || []);
       render();
     });
 
     onSnapshot(widgetRef, (snap) => {
       if (!snap.exists()) return;
+
       const data = snap.data();
       currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
       render();
     });
 
-    // Always fetch fresh on load — no cache skip
     fetchAndStoreAlbum();
   </script>
 </body>
