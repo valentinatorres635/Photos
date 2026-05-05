@@ -7,24 +7,21 @@
 
   <style>
     :root {
-      --bg: #f4ead7;
-      --panel: #d9c5aa;
-      --panel-dark: #8b6f52;
-      --ink: #4d3b2f;
-      --accent: #a9b99a;
-      --accent-2: #d99f8f;
-      --cream: #fff4df;
-      --shadow: #5b4434;
+      --bg: #eef5ee;
+      --panel: #dfeee2;
+      --panel-dark: #9bb89f;
+      --ink: #3f5c45;
+      --accent: #b7d3b0;
+      --accent-2: #cfe5c9;
+      --cream: #f7fbf7;
+      --shadow: #7c9a83;
       --error: #9d4b42;
       --success: #5f7f5f;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       width: 100%;
       min-height: 100%;
@@ -80,9 +77,7 @@
       box-shadow: none;
     }
 
-    .pixel-btn.secondary {
-      background: var(--accent-2);
-    }
+    .pixel-btn.secondary { background: var(--accent-2); }
 
     .photo-wrap {
       position: relative;
@@ -93,35 +88,16 @@
       overflow: hidden;
     }
 
-    .photo-wrap::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(45deg, rgba(77,59,47,0.06) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(77,59,47,0.06) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(77,59,47,0.06) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(77,59,47,0.06) 75%);
-      background-size: 18px 18px;
-      background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
-      pointer-events: none;
-      z-index: 1;
-    }
-
     #slide {
-      position: relative;
-      z-index: 2;
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
-      image-rendering: auto;
     }
 
     .empty-state {
       position: absolute;
       inset: 0;
-      z-index: 3;
       display: grid;
       place-items: center;
       text-align: center;
@@ -129,6 +105,7 @@
       font-weight: 900;
       line-height: 1.45;
       background: var(--cream);
+      z-index: 2;
     }
 
     .caption-row {
@@ -157,9 +134,7 @@
       border: 4px solid var(--panel-dark);
     }
 
-    .settings.open {
-      display: block;
-    }
+    .settings.open { display: block; }
 
     label {
       display: block;
@@ -179,8 +154,7 @@
       margin-bottom: 10px;
     }
 
-    .hint,
-    .tiny {
+    .hint, .tiny {
       font-size: 11px;
       line-height: 1.45;
       margin: 8px 0 0;
@@ -194,28 +168,21 @@
       font-weight: 900;
     }
 
-    .status.error {
-      color: var(--error);
-    }
-
-    .status.success {
-      color: var(--success);
-    }
+    .status.error { color: var(--error); }
+    .status.success { color: var(--success); }
   </style>
 </head>
 
 <body>
   <main class="widget">
     <section class="topbar">
-      <div class="title"> ★ momentos antes de bloquearnos ★</div>
+      <div class="title">🌿 memories</div>
       <button class="pixel-btn secondary" id="settingsBtn" type="button">edit</button>
     </section>
 
     <section class="photo-wrap" aria-live="polite">
       <img id="slide" alt="Google Photos album image" />
-      <div class="empty-state" id="emptyState">
-        paste your Google Photos album link below ✿
-      </div>
+      <div class="empty-state" id="emptyState">load the album once ✿</div>
     </section>
 
     <section class="caption-row">
@@ -224,21 +191,21 @@
     </section>
 
     <section class="controls">
-      <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
-      <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
+      <button class="pixel-btn" id="prevBtn" type="button">◀ previous</button>
+      <button class="pixel-btn" id="nextBtn" type="button">next ▶</button>
     </section>
 
     <section class="settings" id="settingsPanel">
       <label for="albumUrl">Google Photos shared album link</label>
       <input id="albumUrl" placeholder="https://photos.app.goo.gl/..." />
-      <button class="pixel-btn" id="loadAlbumBtn" type="button">load album</button>
+      <button class="pixel-btn" id="loadAlbumBtn" type="button">load shared album</button>
 
       <p class="hint">
-        This widget is manual-only. Use previous/next to change the shared picture for everyone.
+        Album is shared globally. Each widget keeps its own selected picture.
       </p>
 
       <div class="status" id="status"></div>
-      <div class="tiny">Tip: hide the edit panel after loading the album.</div>
+      <div class="tiny">Change WIDGET_ID for each separate widget.</div>
     </section>
   </main>
 
@@ -261,20 +228,26 @@
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
-      authDomain: "slideshow-b78c0.firebaseapp.com",
-      projectId: "slideshow-b78c0",
-      storageBucket: "slideshow-b78c0.firebasestorage.app",
-      messagingSenderId: "50555124539",
-      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
-      measurementId: "G-7WB37JRGZJ"
+      apiKey: "PASTE_YOUR_API_KEY",
+      authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+      projectId: "PASTE_YOUR_PROJECT_ID",
+      storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+      messagingSenderId: "PASTE_YOUR_SENDER_ID",
+      appId: "PASTE_YOUR_APP_ID"
     };
 
     const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
-    const WIDGET_ID = "main-widget";
+
+    // Change this for each widget: "main", "widget2", "widget3", etc.
+    const WIDGET_ID = "main";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+
+    // One shared album for all widgets.
+    const albumRef = doc(db, "photoAlbums", "mainAlbum");
+
+    // Separate selected image for each widget.
     const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
 
     const el = {
@@ -291,7 +264,6 @@
 
     let photos = [];
     let currentIndex = 0;
-    let applyingRemoteUpdate = false;
 
     function setStatus(message, type = "") {
       el.status.textContent = message;
@@ -300,20 +272,11 @@
 
     function normalizePhotoList(items) {
       return items
-        .map((item, index) => {
-          if (typeof item === "string") {
-            return {
-              url: item,
-              caption: `photo ${index + 1}`
-            };
-          }
-
-          return {
-            url: item.url,
-            caption: item.caption || `photo ${index + 1}`
-          };
-        })
-        .filter((item) => item.url && item.url.startsWith("http"));
+        .map((item, index) => ({
+          url: typeof item === "string" ? item : item.url,
+          caption: typeof item === "string" ? `photo ${index + 1}` : item.caption || `photo ${index + 1}`
+        }))
+        .filter(item => item.url && item.url.startsWith("http"));
     }
 
     function safeIndex(index) {
@@ -321,20 +284,7 @@
       return ((index % photos.length) + photos.length) % photos.length;
     }
 
-    async function ensureDocumentExists() {
-      const snap = await getDoc(widgetRef);
-
-      if (!snap.exists()) {
-        await setDoc(widgetRef, {
-          photos: [],
-          currentIndex: 0,
-          albumUrl: "",
-          updatedAt: serverTimestamp()
-        });
-      }
-    }
-
-    function render(index) {
+    function render() {
       if (!photos.length) {
         el.emptyState.style.display = "grid";
         el.slide.removeAttribute("src");
@@ -343,7 +293,7 @@
         return;
       }
 
-      currentIndex = safeIndex(index);
+      currentIndex = safeIndex(currentIndex);
       const current = photos[currentIndex];
 
       el.emptyState.style.display = "none";
@@ -352,16 +302,25 @@
       el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
     }
 
-    async function updateSharedIndex(index) {
-      if (!photos.length || applyingRemoteUpdate) return;
+    async function ensureWidgetExists() {
+      const snap = await getDoc(widgetRef);
+      if (!snap.exists()) {
+        await setDoc(widgetRef, {
+          currentIndex: 0,
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
 
+    async function updateSharedIndex(nextIndex) {
+      if (!photos.length) return;
       await updateDoc(widgetRef, {
-        currentIndex: safeIndex(index),
+        currentIndex: safeIndex(nextIndex),
         updatedAt: serverTimestamp()
       });
     }
 
-    async function loadAlbum() {
+    async function loadSharedAlbum() {
       const albumUrl = el.albumUrl.value.trim();
 
       if (!albumUrl) {
@@ -370,7 +329,7 @@
       }
 
       try {
-        setStatus("Loading album...");
+        setStatus("Loading shared album...");
 
         const response = await fetch(`${ALBUM_ENDPOINT}?url=${encodeURIComponent(albumUrl)}`);
         const data = await response.json();
@@ -385,36 +344,47 @@
           throw new Error("No photos found in this album.");
         }
 
-        await setDoc(widgetRef, {
+        await setDoc(albumRef, {
           photos: loadedPhotos,
-          currentIndex: 0,
           albumUrl,
           updatedAt: serverTimestamp()
         }, { merge: true });
 
-        setStatus(`Album loaded: ${loadedPhotos.length} photos.`, "success");
+        await setDoc(widgetRef, {
+          currentIndex: 0,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        setStatus(`Shared album loaded: ${loadedPhotos.length} photos.`, "success");
       } catch (error) {
         setStatus(error.message, "error");
       }
     }
 
-    el.loadAlbumBtn.addEventListener("click", loadAlbum);
+    el.loadAlbumBtn.addEventListener("click", loadSharedAlbum);
     el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
     el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
 
-    await ensureDocumentExists();
+    await ensureWidgetExists();
+
+    onSnapshot(albumRef, (snap) => {
+      if (!snap.exists()) {
+        photos = [];
+        render();
+        return;
+      }
+
+      const data = snap.data();
+      photos = normalizePhotoList(data.photos || []);
+      el.albumUrl.value = data.albumUrl || "";
+      render();
+    });
 
     onSnapshot(widgetRef, (snap) => {
       if (!snap.exists()) return;
-
       const data = snap.data();
-
-      applyingRemoteUpdate = true;
-      photos = normalizePhotoList(data.photos || []);
       currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
-      el.albumUrl.value = data.albumUrl || "";
-      render(currentIndex);
-      applyingRemoteUpdate = false;
+      render();
     });
   </script>
 </body>
