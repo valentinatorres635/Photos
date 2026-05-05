@@ -294,64 +294,72 @@
       });
     }
 
-    async function fetchAndStoreAlbum() {
+        async function fetchAndStoreAlbum() {
       if (isFetchingAlbum) return;
       isFetchingAlbum = true;
-
+    
       if (!ALBUM_URL || ALBUM_URL.includes("PASTE_")) {
         setStatus("Add ALBUM_URL inside the HTML file.", "error");
         el.emptyState.textContent = "missing album link";
         isFetchingAlbum = false;
         return;
       }
-
+    
       try {
         setStatus("loading fresh album URLs...");
         el.emptyState.style.display = "grid";
         el.emptyState.textContent = "loading album ✿";
-
+    
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
+        const timeout = setTimeout(() => controller.abort(), 20000);
+    
         const response = await fetch(
           `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}&t=${Date.now()}`,
-          { signal: controller.signal }
+          { 
+            signal: controller.signal,
+            mode: 'cors',
+            headers: {
+              'Accept': 'application/json'
+            }
+          }
         );
-
+    
         clearTimeout(timeout);
-
-        const text = await response.text();
-
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch {
-          throw new Error("Firebase returned HTML instead of JSON.");
-        }
-
+    
         if (!response.ok) {
-          throw new Error(data.error || "Could not load album.");
+          const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          throw new Error(errorData.error || `Failed to load album (${response.status})`);
         }
-
-        const loadedPhotos = normalizePhotoList(data.photos || []);
-
-        if (!loadedPhotos.length) {
+    
+        const data = await response.json();
+        
+        if (!data.photos || !data.photos.length) {
           throw new Error("No photos found. Check if the album is shared publicly.");
         }
-
+    
+        const loadedPhotos = normalizePhotoList(data.photos);
+    
         await setDoc(albumRef, {
           photos: loadedPhotos,
           albumUrl: ALBUM_URL,
           refreshedAt: Date.now(),
           updatedAt: serverTimestamp()
         }, { merge: true });
-
+    
         setStatus(`${loadedPhotos.length} photos loaded ✿`, "success");
       } catch (error) {
-        console.error(error);
-        setStatus(error.message, "error");
+        console.error("Fetch error:", error);
+        
+        let errorMsg = error.message;
+        if (error.name === 'AbortError') {
+          errorMsg = "Request timed out. Please check your internet connection.";
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMsg = "Cannot reach the server. Check if Firebase function is deployed.";
+        }
+        
+        setStatus(errorMsg, "error");
         el.emptyState.style.display = "grid";
-        el.emptyState.textContent = error.message;
+        el.emptyState.textContent = errorMsg;
       } finally {
         isFetchingAlbum = false;
       }
