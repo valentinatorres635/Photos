@@ -47,9 +47,8 @@
 
     .topbar {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-      gap: 8px;
       margin-bottom: 12px;
     }
 
@@ -58,26 +57,8 @@
       font-weight: 900;
       letter-spacing: 0.5px;
       text-transform: lowercase;
+      text-align: center;
     }
-
-    .pixel-btn {
-      background: var(--accent);
-      border: 3px solid var(--ink);
-      color: var(--ink);
-      font-family: inherit;
-      font-weight: 900;
-      padding: 7px 10px;
-      cursor: pointer;
-      box-shadow: 3px 3px 0 var(--shadow);
-      border-radius: 0;
-    }
-
-    .pixel-btn:active {
-      transform: translate(3px, 3px);
-      box-shadow: none;
-    }
-
-    .pixel-btn.secondary { background: var(--accent-2); }
 
     .photo-wrap {
       position: relative;
@@ -126,46 +107,29 @@
       margin-top: 12px;
     }
 
-    .settings {
-      display: none;
-      margin-top: 14px;
-      padding: 12px;
-      background: var(--panel);
-      border: 4px solid var(--panel-dark);
-    }
-
-    .settings.open { display: block; }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 900;
-      margin-bottom: 5px;
-    }
-
-    input {
-      width: 100%;
-      background: var(--cream);
+    .pixel-btn {
+      background: var(--accent);
       border: 3px solid var(--ink);
       color: var(--ink);
       font-family: inherit;
-      padding: 8px;
-      outline: none;
-      margin-bottom: 10px;
+      font-weight: 900;
+      padding: 7px 10px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--shadow);
+      border-radius: 0;
     }
 
-    .hint, .tiny {
-      font-size: 11px;
-      line-height: 1.45;
-      margin: 8px 0 0;
-      font-weight: 700;
+    .pixel-btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: none;
     }
 
     .status {
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.45;
       margin-top: 10px;
       font-weight: 900;
+      text-align: center;
     }
 
     .status.error { color: var(--error); }
@@ -176,40 +140,26 @@
 <body>
   <main class="widget">
     <section class="topbar">
-      <div class="title">❧ momentos antes de bloquearnos </div>
-      <button class="pixel-btn secondary" id="settingsBtn" type="button">edit</button>
+      <div class="title">🌿 memories</div>
     </section>
 
     <section class="photo-wrap" aria-live="polite">
       <img id="slide" alt="Google Photos album image" />
-      <div class="empty-state" id="emptyState">load the album once ✿</div>
+      <div class="empty-state" id="emptyState">loading album ✿</div>
     </section>
 
     <section class="caption-row">
-      <span id="caption">no album loaded</span>
+      <span id="caption">loading</span>
       <span id="counter">0/0</span>
     </section>
 
     <section class="controls">
-      <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
-      <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
+      <button class="pixel-btn" id="prevBtn" type="button">◀ previous</button>
+      <button class="pixel-btn" id="nextBtn" type="button">next ▶</button>
     </section>
 
-    <section class="settings" id="settingsPanel">
-      <label for="albumUrl">Google Photos shared album link</label>
-      <input id="albumUrl" placeholder="https://photos.app.goo.gl/..." />
-      <button class="pixel-btn" id="loadAlbumBtn" type="button">load shared album</button>
-
-      <div class="status" id="status"></div>
-      <div class="tiny">Change WIDGET_ID for each separate widget.</div>
-    </section>
+    <div class="status" id="status"></div>
   </main>
-
-  <script>
-    document.getElementById("settingsBtn").addEventListener("click", () => {
-      document.getElementById("settingsPanel").classList.toggle("open");
-    });
-  </script>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -224,32 +174,32 @@
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
-      authDomain: "slideshow-b78c0.firebaseapp.com",
-      projectId: "slideshow-b78c0",
-      storageBucket: "slideshow-b78c0.firebasestorage.app",
-      messagingSenderId: "50555124539",
-      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
-      measurementId: "G-7WB37JRGZJ"
+      apiKey: "PASTE_YOUR_API_KEY",
+      authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+      projectId: "PASTE_YOUR_PROJECT_ID",
+      storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+      messagingSenderId: "PASTE_YOUR_SENDER_ID",
+      appId: "PASTE_YOUR_APP_ID"
     };
 
     const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
 
-    // Change this for each widget: "main", "widget2", "widget3", etc.
+    // Paste your Google Photos shared album link here.
+    const ALBUM_URL = "PASTE_YOUR_GOOGLE_PHOTOS_ALBUM_LINK_HERE";
+
+    // Change this for each separate widget: "main", "widget2", "widget3", etc.
     const WIDGET_ID = "main";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // One shared album for all widgets.
+    // One shared album for all widgets using this same album document.
     const albumRef = doc(db, "photoAlbums", "mainAlbum");
 
     // Separate selected image for each widget.
     const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
 
     const el = {
-      albumUrl: document.getElementById("albumUrl"),
-      loadAlbumBtn: document.getElementById("loadAlbumBtn"),
       status: document.getElementById("status"),
       slide: document.getElementById("slide"),
       emptyState: document.getElementById("emptyState"),
@@ -317,18 +267,25 @@
       });
     }
 
-    async function loadSharedAlbum() {
-      const albumUrl = el.albumUrl.value.trim();
+    async function loadSharedAlbumIfNeeded() {
+      if (!ALBUM_URL || ALBUM_URL.includes("PASTE_")) {
+        setStatus("Add ALBUM_URL inside the HTML file.", "error");
+        return;
+      }
 
-      if (!albumUrl) {
-        setStatus("Paste a Google Photos album link first.", "error");
+      const albumSnap = await getDoc(albumRef);
+      const currentAlbumUrl = albumSnap.exists() ? albumSnap.data().albumUrl : "";
+      const currentPhotos = albumSnap.exists() ? normalizePhotoList(albumSnap.data().photos || []) : [];
+
+      // Do not reload if this album is already stored in Firebase.
+      if (currentAlbumUrl === ALBUM_URL && currentPhotos.length) {
         return;
       }
 
       try {
         setStatus("Loading shared album...");
 
-        const response = await fetch(`${ALBUM_ENDPOINT}?url=${encodeURIComponent(albumUrl)}`);
+        const response = await fetch(`${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -343,22 +300,16 @@
 
         await setDoc(albumRef, {
           photos: loadedPhotos,
-          albumUrl,
+          albumUrl: ALBUM_URL,
           updatedAt: serverTimestamp()
         }, { merge: true });
 
-        await setDoc(widgetRef, {
-          currentIndex: 0,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-
-        setStatus(`Shared album loaded: ${loadedPhotos.length} photos.`, "success");
+        setStatus(`Album loaded: ${loadedPhotos.length} photos.`, "success");
       } catch (error) {
         setStatus(error.message, "error");
       }
     }
 
-    el.loadAlbumBtn.addEventListener("click", loadSharedAlbum);
     el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
     el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
 
@@ -373,7 +324,6 @@
 
       const data = snap.data();
       photos = normalizePhotoList(data.photos || []);
-      el.albumUrl.value = data.albumUrl || "";
       render();
     });
 
@@ -383,6 +333,8 @@
       currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
       render();
     });
+
+    loadSharedAlbumIfNeeded();
   </script>
 </body>
 </html>
