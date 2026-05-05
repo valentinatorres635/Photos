@@ -100,7 +100,7 @@
 
         .controls {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 0.5fr;
             gap: 8px;
             margin-top: 12px;
         }
@@ -123,6 +123,12 @@
             box-shadow: none;
         }
 
+        .pixel-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .status {
             font-size: 11px;
             line-height: 1.45;
@@ -142,10 +148,11 @@
             letter-spacing: 0.5px;
         }
         
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
+        .last-updated {
+            font-size: 9px;
+            text-align: center;
+            margin-top: 4px;
+            color: var(--panel-dark);
         }
     </style>
 </head>
@@ -157,21 +164,23 @@
 
         <section class="photo-wrap" aria-live="polite">
             <img id="slide" alt="Google Photos album image" />
-            <div class="empty-state" id="emptyState">La paciencia es virtud de sabios</div>
+            <div class="empty-state" id="emptyState">loading album ✿</div>
         </section>
 
         <section class="caption-row">
-            <span id="caption">espera porfis</span>
+            <span id="caption">loading</span>
             <span id="counter">0/0</span>
         </section>
 
         <section class="controls">
-            <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
-            <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
+            <button class="pixel-btn" id="prevBtn" type="button">◀ PREV</button>
+            <button class="pixel-btn" id="nextBtn" type="button">NEXT ▶</button>
+            <button class="pixel-btn" id="refreshBtn" type="button" title="Refresh album">⟳</button>
         </section>
 
         <div class="status" id="status"></div>
         <div class="widget-id-badge" id="widgetIdBadge"></div>
+        <div class="last-updated" id="lastUpdated"></div>
     </main>
 
     <script type="module">
@@ -187,12 +196,9 @@
         } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
         // ============================================
-        // CHANGE THIS FOR EACH WIDGET!
-        // Examples: "kitchen", "bedroom", "office", "livingroom"
+        // CONFIGURATION - CHANGE THIS FOR EACH WIDGET!
         // ============================================
-        const WIDGET_ID = "main";  // ← CHANGE THIS FOR EACH WIDGET
-        
-        // IMPORTANT: Make sure this matches your album URL
+        const WIDGET_ID = "main";  // ← Change this for each widget (kitchen, bedroom, etc.)
         const ALBUM_URL = "https://photos.app.goo.gl/cTebSdwRbX3nb1rU7";
         // ============================================
 
@@ -222,7 +228,9 @@
             counter: document.getElementById("counter"),
             prevBtn: document.getElementById("prevBtn"),
             nextBtn: document.getElementById("nextBtn"),
-            widgetIdBadge: document.getElementById("widgetIdBadge")
+            refreshBtn: document.getElementById("refreshBtn"),
+            widgetIdBadge: document.getElementById("widgetIdBadge"),
+            lastUpdated: document.getElementById("lastUpdated")
         };
 
         // State
@@ -247,13 +255,21 @@
         function normalizePhotoList(items) {
             if (!items || !items.length) return [];
             return items
-                .map((item, index) => ({
-                    url: typeof item === "string" ? item : (item.url || ""),
-                    caption: typeof item === "string"
-                        ? `photo ${index + 1}`
-                        : (item.caption || `fotito ${index + 1}`)
-                }))
-                .filter(item => item.url && item.url.startsWith("http") && !item.url.includes("undefined"));
+                .map((item, index) => {
+                    let url = "";
+                    let caption = `fotito ${index + 1}`;
+                    
+                    if (typeof item === "string") {
+                        url = item;
+                        caption = `fotito ${index + 1}`;
+                    } else if (typeof item === "object") {
+                        url = item.url || "";
+                        caption = item.caption || `fotito ${index + 1}`;
+                    }
+                    
+                    return { url, caption };
+                })
+                .filter(item => item.url && item.url.startsWith("http") && !item.url.includes("undefined") && item.url.length > 20);
         }
 
         function safeIndex(index) {
@@ -261,6 +277,20 @@
             if (index < 0) return photos.length - 1;
             if (index >= photos.length) return 0;
             return index;
+        }
+
+        function formatTimeAgo(timestamp) {
+            if (!timestamp) return 'never';
+            const now = Date.now();
+            const diff = now - timestamp;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor(diff / (1000 * 60));
+            
+            if (hours < 1) return `${minutes} minutes ago`;
+            if (hours === 1) return '1 hour ago';
+            if (hours < 24) return `${hours} hours ago`;
+            const days = Math.floor(hours / 24);
+            return `${days} days ago`;
         }
 
         function updateDisplay() {
@@ -287,7 +317,6 @@
             el.emptyState.style.display = "grid";
             el.emptyState.textContent = "loading photo ✿";
 
-            // Clean URL
             let imageUrl = photo.url;
             if (!imageUrl.includes('=') && !imageUrl.includes('w1600')) {
                 imageUrl = `${imageUrl}=w1600-h1600-no`;
@@ -346,7 +375,6 @@
                         widgetName: WIDGET_ID
                     });
                 } else {
-                    // Load existing index
                     const data = snap.data();
                     if (data.currentIndex !== undefined) {
                         currentIndex = data.currentIndex;
@@ -358,18 +386,59 @@
             }
         }
 
-        async function fetchAndStoreAlbum() {
-            if (isFetchingAlbum) return;
-            isFetchingAlbum = true;
+        function getCacheAge(albumSnap) {
+            if (!albumSnap.exists()) return { hours: 999, minutes: 999, isValid: false };
+            const lastRefreshed = albumSnap.data().lastRefreshed || 0;
+            const ageMs = Date.now() - lastRefreshed;
+            const hours = ageMs / (1000 * 60 * 60);
+            const minutes = ageMs / (1000 * 60);
+            return { hours, minutes, lastRefreshed, isValid: lastRefreshed > 0 };
+        }
 
+        async function fetchAndStoreAlbum(forceRefresh = false) {
+            if (isFetchingAlbum) return;
+            
+            // Check cache age
+            const albumSnap = await getDoc(albumRef);
+            const cacheAge = getCacheAge(albumSnap);
+            
+            // Show cache info
+            if (albumSnap.exists() && albumSnap.data().photos && cacheAge.isValid) {
+                const lastRefreshedDate = new Date(cacheAge.lastRefreshed);
+                el.lastUpdated.textContent = `updated ${formatTimeAgo(cacheAge.lastRefreshed)}`;
+                
+                if (!forceRefresh && cacheAge.hours < 24) {
+                    const hoursLeft = Math.floor(24 - cacheAge.hours);
+                    setStatus(`📸 ${albumSnap.data().photos.length} photos (next refresh in ${hoursLeft}h)`, "success");
+                    
+                    if (photos.length === 0) {
+                        photos = normalizePhotoList(albumSnap.data().photos || []);
+                        updateDisplay();
+                    }
+                    return;
+                }
+            }
+            
+            // Refresh if cache is old or forced
+            isFetchingAlbum = true;
+            
             try {
-                setStatus("loading album from Google Photos...");
+                setStatus("refreshing album from Google Photos...");
                 el.emptyState.style.display = "grid";
-                el.emptyState.textContent = "fetching album ✿";
+                el.emptyState.textContent = "fetching latest photos ✿";
+
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 20000);
 
                 const response = await fetch(
-                    `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}&t=${Date.now()}`
+                    `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}&t=${Date.now()}`,
+                    { 
+                        signal: controller.signal,
+                        headers: { 'Accept': 'application/json' }
+                    }
                 );
+
+                clearTimeout(timeout);
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -387,21 +456,34 @@
                     throw new Error("No valid photos found");
                 }
 
+                const refreshTime = Date.now();
                 await setDoc(albumRef, {
                     photos: loadedPhotos,
                     albumUrl: ALBUM_URL,
-                    lastRefreshed: Date.now(),
+                    lastRefreshed: refreshTime,
                     refreshedAt: serverTimestamp(),
-                    totalPhotos: loadedPhotos.length
+                    totalPhotos: loadedPhotos.length,
+                    nextRefresh: refreshTime + (24 * 60 * 60 * 1000)
                 }, { merge: true });
 
+                photos = loadedPhotos;
+                el.lastUpdated.textContent = `updated just now`;
                 setStatus(`✅ ${loadedPhotos.length} photos loaded!`, "success");
-                console.log(`Loaded ${loadedPhotos.length} photos from album`);
+                updateDisplay();
+                
             } catch (error) {
                 console.error("Fetch error:", error);
-                setStatus(`Error: ${error.message}`, "error");
-                el.emptyState.style.display = "grid";
-                el.emptyState.textContent = "failed to load album";
+                
+                // Use cached data if available
+                if (albumSnap.exists() && albumSnap.data().photos) {
+                    photos = normalizePhotoList(albumSnap.data().photos || []);
+                    updateDisplay();
+                    setStatus(`⚠️ Using cached photos (${error.message})`, "error");
+                } else {
+                    setStatus(`Error: ${error.message}`, "error");
+                    el.emptyState.style.display = "grid";
+                    el.emptyState.textContent = "failed to load album";
+                }
             } finally {
                 isFetchingAlbum = false;
             }
@@ -417,15 +499,20 @@
             console.log(`[${WIDGET_ID}] Next button clicked`);
             updateWidgetIndex(currentIndex + 1);
         };
+        
+        el.refreshBtn.onclick = () => {
+            console.log(`[${WIDGET_ID}] Manual refresh requested`);
+            setStatus("Manually refreshing album...", "success");
+            fetchAndStoreAlbum(true);
+        };
 
         // Initialize and start listeners
         async function init() {
             console.log(`Initializing widget: ${WIDGET_ID}`);
             
-            // Ensure widget exists in Firestore
             await ensureWidgetExists();
             
-            // Listen for album changes (new photos)
+            // Listen for album changes
             onSnapshot(albumRef, (snap) => {
                 if (snap.exists()) {
                     const newPhotos = normalizePhotoList(snap.data().photos || []);
@@ -434,13 +521,19 @@
                         photos = newPhotos;
                         updateDisplay();
                     }
+                    
+                    // Update last refreshed display
+                    const lastRefreshed = snap.data().lastRefreshed;
+                    if (lastRefreshed) {
+                        el.lastUpdated.textContent = `updated ${formatTimeAgo(lastRefreshed)}`;
+                    }
                 } else {
                     photos = [];
                     updateDisplay();
                 }
             });
             
-            // Listen for index changes from other viewers of this widget
+            // Listen for index changes
             onSnapshot(widgetRef, (snap) => {
                 if (!snap.exists()) return;
                 
@@ -456,15 +549,19 @@
                 }
             });
             
-            // Fetch album if needed
+            // Load album
             const albumSnap = await getDoc(albumRef);
-            if (!albumSnap.exists() || !albumSnap.data().photos) {
+            if (!albumSnap.exists() || !albumSnap.data().photos || albumSnap.data().photos.length === 0) {
                 await fetchAndStoreAlbum();
             } else {
                 photos = normalizePhotoList(albumSnap.data().photos || []);
                 updateDisplay();
-                // Refresh in background
-                fetchAndStoreAlbum();
+                // Check if refresh needed in background
+                const lastRefreshed = albumSnap.data().lastRefreshed || 0;
+                const hoursSinceRefresh = (Date.now() - lastRefreshed) / (1000 * 60 * 60);
+                if (hoursSinceRefresh >= 24) {
+                    fetchAndStoreAlbum();
+                }
             }
         }
         
