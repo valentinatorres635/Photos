@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Google Photos Slideshow</title>
+  <style>
+    :root {
+      --bg: #f4ead7;
+      --panel: #d9c5aa;
+      --panel-dark: #8b6f52;
+      --ink: #4d3b2f;
+      --accent: #a9b99a;
+      --accent-2: #d99f8f;
+      --cream: #fff4df;
+      --shadow: #5b4434;
+      --error: #9d4b42;
+      --success: #5f7f5f;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: transparent;
+      font-family: "Courier New", Courier, monospace;
+      color: var(--ink);
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+    }
+
+    .widget {
+      width: min(100%, 390px);
+      background: var(--bg);
+      border: 6px solid var(--ink);
+      box-shadow: 8px 8px 0 var(--shadow);
+      padding: 14px;
+      image-rendering: pixelated;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: lowercase;
+    }
+
+    .pixel-btn {
+      background: var(--accent);
+      border: 3px solid var(--ink);
+      color: var(--ink);
+      font-family: inherit;
+      font-weight: 900;
+      padding: 7px 10px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--shadow);
+      border-radius: 0;
+    }
+
+    .pixel-btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: none;
+    }
+
+    .pixel-btn.secondary { background: var(--accent-2); }
+
+    .photo-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--cream);
+      border: 5px solid var(--panel-dark);
+      overflow: hidden;
+    }
+
+    .photo-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(45deg, rgba(77,59,47,0.06) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(77,59,47,0.06) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(77,59,47,0.06) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(77,59,47,0.06) 75%);
+      background-size: 18px 18px;
+      background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
+      pointer-events: none;
+    }
+
+    #slide {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      image-rendering: auto;
+      opacity: 1;
+      transition: opacity 220ms ease;
+    }
+
+    #slide.fade { opacity: 0; }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 22px;
+      font-weight: 900;
+      line-height: 1.45;
+      background: var(--cream);
+      z-index: 2;
+    }
+
+    .caption-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 24px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .settings {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      background: var(--panel);
+      border: 4px solid var(--panel-dark);
+    }
+
+    .settings.open { display: block; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: var(--cream);
+      border: 3px solid var(--ink);
+      color: var(--ink);
+      font-family: inherit;
+      padding: 8px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+
+    .hint {
+      font-size: 11px;
+      line-height: 1.45;
+      margin: 4px 0 10px;
+      font-weight: 700;
+    }
+
+    .status {
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 8px;
+      font-weight: 900;
+    }
+
+    .status.error { color: var(--error); }
+    .status.success { color: var(--success); }
+
+    .tiny {
+      font-size: 10px;
+      opacity: 0.85;
+      line-height: 1.35;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <main class="widget">
+    <section class="topbar">
+      <div class="title">𖦹 pixel memories 𖦹</div>
+      <button class="pixel-btn secondary" id="settingsBtn" type="button">edit</button>
+    </section>
+
+    <section class="photo-wrap" aria-live="polite">
+      <img id="slide" alt="Google Photos slideshow image" />
+      <div class="empty-state" id="emptyState">
+        paste your Google Photos shared album link below ✿
+      </div>
+    </section>
+
+    <section class="caption-row">
+      <span id="caption">no album loaded</span>
+      <span id="counter">0/0</span>
+    </section>
+
+    <section class="controls">
+      <button class="pixel-btn" id="prevBtn" type="button">◀</button>
+      <button class="pixel-btn" id="playBtn" type="button">pause</button>
+      <button class="pixel-btn" id="nextBtn" type="button">▶</button>
+    </section>
+
+    <section class="settings" id="settingsPanel">
+      <label for="albumUrl">Google Photos shared album link</label>
+      <input id="albumUrl" placeholder="https://photos.app.goo.gl/..." />
+
+      <button class="pixel-btn" id="loadAlbumBtn" type="button">load album</button>
+
+      <p class="hint">
+        This static GitHub Pages widget needs a parser endpoint because Google Photos blocks direct browser scraping.
+        Add your Firebase Function URL in the code as <strong>ALBUM_ENDPOINT</strong>.
+      </p>
+
+      <label for="manualUrls">Manual fallback image URLs, one per line</label>
+      <textarea id="manualUrls" placeholder="https://lh3.googleusercontent.com/...\nhttps://lh3.googleusercontent.com/..."></textarea>
+      <button class="pixel-btn secondary" id="loadManualBtn" type="button">load manual urls</button>
+
+      <div class="status" id="status"></div>
+      <div class="tiny">
+        Tip: after you save once, the album/images are stored in this browser with localStorage, so the Notion embed reloads automatically.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /*
+      GitHub Pages setup:
+      1. Create a repo, for example: notion-pixel-photos-widget
+      2. Add this file as index.html
+      3. Settings > Pages > Deploy from branch > main > /root
+      4. Paste the GitHub Pages URL into Notion with /embed
+
+      Google Photos album setup:
+      - A browser-only static page usually cannot read a Google Photos album link because of CORS and page rendering.
+      - To paste only the album link, deploy the Firebase Function shown below this HTML in the chat response.
+      - Then paste that function URL into ALBUM_ENDPOINT.
+    */
+
+    const ALBUM_ENDPOINT = "";
+    // Example after Firebase deploy:
+    // const ALBUM_ENDPOINT = "https://us-central1-YOUR_PROJECT.cloudfunctions.net/googlePhotosAlbum";
+
+    const SLIDE_MS = 4200;
+
+    const el = {
+      settingsBtn: document.getElementById("settingsBtn"),
+      settingsPanel: document.getElementById("settingsPanel"),
+      albumUrl: document.getElementById("albumUrl"),
+      loadAlbumBtn: document.getElementById("loadAlbumBtn"),
+      manualUrls: document.getElementById("manualUrls"),
+      loadManualBtn: document.getElementById("loadManualBtn"),
+      status: document.getElementById("status"),
+      slide: document.getElementById("slide"),
+      emptyState: document.getElementById("emptyState"),
+      caption: document.getElementById("caption"),
+      counter: document.getElementById("counter"),
+      prevBtn: document.getElementById("prevBtn"),
+      nextBtn: document.getElementById("nextBtn"),
+      playBtn: document.getElementById("playBtn")
+    };
+
+    let photos = [];
+    let index = 0;
+    let timer = null;
+    let isPlaying = true;
+
+    function setStatus(message, type = "") {
+      el.status.textContent = message;
+      el.status.className = type ? `status ${type}` : "status";
+    }
+
+    function normalizePhotoList(items) {
+      return items
+        .map((item, i) => {
+          if (typeof item === "string") return { url: item.trim(), caption: `photo ${i + 1}` };
+          return {
+            url: String(item.url || "").trim(),
+            caption: item.caption || `photo ${i + 1}`
+          };
+        })
+        .filter(item => item.url.startsWith("http"));
+    }
+
+    function saveState() {
+      localStorage.setItem("pixelPhotosWidget", JSON.stringify({ photos, index }));
+    }
+
+    function loadState() {
+      try {
+        const stored = JSON.parse(localStorage.getItem("pixelPhotosWidget") || "{}");
+        if (Array.isArray(stored.photos)) {
+          photos = normalizePhotoList(stored.photos);
+          index = Number.isInteger(stored.index) ? stored.index : 0;
+        }
+      } catch (_) {
+        photos = [];
+        index = 0;
+      }
+    }
+
+    function showSlide(nextIndex = index) {
+      if (!photos.length) {
+        el.emptyState.style.display = "grid";
+        el.slide.removeAttribute("src");
+        el.caption.textContent = "no album loaded";
+        el.counter.textContent = "0/0";
+        return;
+      }
+
+      index = (nextIndex + photos.length) % photos.length;
+      const current = photos[index];
+
+      el.emptyState.style.display = "none";
+      el.slide.classList.add("fade");
+
+      window.setTimeout(() => {
+        el.slide.src = current.url;
+        el.slide.onload = () => el.slide.classList.remove("fade");
+        el.caption.textContent = current.caption || `photo ${index + 1}`;
+        el.counter.textContent = `${index + 1}/${photos.length}`;
+        saveState();
+      }, 120);
+    }
+
+    function nextSlide() { showSlide(index + 1); }
+    function prevSlide() { showSlide(index - 1); }
+
+    function startTimer() {
+      stopTimer();
+      timer = window.setInterval(nextSlide, SLIDE_MS);
+    }
+
+    function stopTimer() {
+      if (timer) window.clearInterval(timer);
+      timer = null;
+    }
+
+    function setPlaying(value) {
+      isPlaying = value;
+      el.playBtn.textContent = isPlaying ? "pause" : "play";
+      if (isPlaying) startTimer();
+      else stopTimer();
+    }
+
+    async function loadAlbumFromEndpoint() {
+      const albumUrl = el.albumUrl.value.trim();
+
+      if (!albumUrl) {
+        setStatus("Paste a Google Photos shared album link first.", "error");
+        return;
+      }
+
+      if (!ALBUM_ENDPOINT) {
+        setStatus("Add your Firebase Function URL to ALBUM_ENDPOINT first, or use manual image URLs.", "error");
+        return;
+      }
+
+      try {
+        setStatus("Loading album...");
+        const url = `${ALBUM_ENDPOINT}?url=${encodeURIComponent(albumUrl)}`;
+        const response = await fetch(url);
+
+        if (!response.ok) throw new Error(`Endpoint failed: ${response.status}`);
+
+        const data = await response.json();
+        const loaded = normalizePhotoList(data.photos || []);
+
+        if (!loaded.length) throw new Error("No photos found.");
+
+        photos = loaded;
+        index = 0;
+        showSlide(0);
+        setPlaying(true);
+        setStatus(`Loaded ${photos.length} photos.`, "success");
+      } catch (error) {
+        setStatus(`Could not load album: ${error.message}`, "error");
+      }
+    }
+
+    function loadManualUrls() {
+      const urls = el.manualUrls.value
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      const loaded = normalizePhotoList(urls);
+
+      if (!loaded.length) {
+        setStatus("Paste at least one valid image URL.", "error");
+        return;
+      }
+
+      photos = loaded;
+      index = 0;
+      showSlide(0);
+      setPlaying(true);
+      setStatus(`Loaded ${photos.length} manual image URLs.`, "success");
+    }
+
+    el.settingsBtn.addEventListener("click", () => {
+      el.settingsPanel.classList.toggle("open");
+    });
+
+    el.loadAlbumBtn.addEventListener("click", loadAlbumFromEndpoint);
+    el.loadManualBtn.addEventListener("click", loadManualUrls);
+    el.nextBtn.addEventListener("click", () => { nextSlide(); if (isPlaying) startTimer(); });
+    el.prevBtn.addEventListener("click", () => { prevSlide(); if (isPlaying) startTimer(); });
+    el.playBtn.addEventListener("click", () => setPlaying(!isPlaying));
+
+    loadState();
+    showSlide();
+    setPlaying(true);
+
+    if (!photos.length) {
+      el.settingsPanel.classList.add("open");
+      setPlaying(false);
+    }
+  </script>
+</body>
+</html>
