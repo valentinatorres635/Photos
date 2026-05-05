@@ -357,31 +357,37 @@
       }
     }
 
-    el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
-    el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
+    // Main initialization function
+    async function init() {
+      el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
+      el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
 
-    await ensureWidgetExists();
+      await ensureWidgetExists();
 
-    onSnapshot(albumRef, (snap) => {
-      if (!snap.exists()) {
-        photos = [];
+      onSnapshot(albumRef, (snap) => {
+        if (!snap.exists()) {
+          photos = [];
+          render();
+          return;
+        }
+
+        photos = normalizePhotoList(snap.data().photos || []);
         render();
-        return;
-      }
+      });
 
-      photos = normalizePhotoList(snap.data().photos || []);
-      render();
-    });
+      onSnapshot(widgetRef, (snap) => {
+        if (!snap.exists()) return;
 
-    onSnapshot(widgetRef, (snap) => {
-      if (!snap.exists()) return;
+        const data = snap.data();
+        currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
+        render();
+      });
 
-      const data = snap.data();
-      currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
-      render();
-    });
+      fetchAndStoreAlbum();
+    }
 
-    fetchAndStoreAlbum();
+    // Start the app
+    init().catch(console.error);
   </script>
 </body>
 </html>
