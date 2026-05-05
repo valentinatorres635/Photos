@@ -233,6 +233,13 @@ https://lh3.googleusercontent.com/..."></textarea>
     </section>
   </main>
 
+  <script>
+    // This tiny script makes the edit button work even if Firebase has an error later.
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+      document.getElementById("settingsPanel").classList.toggle("open");
+    });
+  </script>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import {
@@ -246,13 +253,12 @@ https://lh3.googleusercontent.com/..."></textarea>
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
-      authDomain: "slideshow-b78c0.firebaseapp.com",
-      projectId: "slideshow-b78c0",
-      storageBucket: "slideshow-b78c0.firebasestorage.app",
-      messagingSenderId: "50555124539",
-      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
-      measurementId: "G-7WB37JRGZJ"
+      apiKey: "PASTE_YOUR_API_KEY",
+      authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+      projectId: "PASTE_YOUR_PROJECT_ID",
+      storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
+      messagingSenderId: "PASTE_YOUR_SENDER_ID",
+      appId: "PASTE_YOUR_APP_ID"
     };
 
     const ALBUM_ENDPOINT = "PASTE_YOUR_FIREBASE_FUNCTION_URL";
@@ -429,8 +435,6 @@ https://lh3.googleusercontent.com/..."></textarea>
 
       setStatus(`Loaded ${loaded.length} manual image URLs for everyone.`, "success");
     }
-
-    el.settingsBtn.addEventListener("click", () => el.settingsPanel.classList.toggle("open"));
     el.loadAlbumBtn.addEventListener("click", loadAlbumFromEndpoint);
     el.loadManualBtn.addEventListener("click", loadManualUrls);
     el.nextBtn.addEventListener("click", () => pushIndex(index + 1));
