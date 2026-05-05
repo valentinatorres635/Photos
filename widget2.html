@@ -17,200 +17,403 @@
     --shadow: #7c9a83;
   }
 
-  * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
-  body {
-    margin: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-family: "Courier New", monospace;
-    background: transparent;
-    color: var(--ink);
-  }
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: transparent;
+      font-family: "Courier New", Courier, monospace;
+      color: var(--ink);
+    }
 
-  .widget {
-    width: 360px;
-    background: var(--bg);
-    border: 6px solid var(--ink);
-    box-shadow: 8px 8px 0 var(--shadow);
-    padding: 14px;
-  }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+    }
 
-  .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
+    .widget {
+      width: min(100%, 390px);
+      background: var(--bg);
+      border: 6px solid var(--ink);
+      box-shadow: 8px 8px 0 var(--shadow);
+      padding: 14px;
+    }
 
-  .title {
-    font-weight: bold;
-    font-size: 15px;
-  }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
 
-  button {
-    background: var(--accent);
-    border: 3px solid var(--ink);
-    padding: 6px 10px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 3px 3px 0 var(--shadow);
-  }
+    .title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: lowercase;
+    }
 
-  button:active {
-    transform: translate(3px,3px);
-    box-shadow: none;
-  }
+    .pixel-btn {
+      background: var(--accent);
+      border: 3px solid var(--ink);
+      color: var(--ink);
+      font-family: inherit;
+      font-weight: 900;
+      padding: 7px 10px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--shadow);
+      border-radius: 0;
+    }
 
-  .photo-wrap {
-    width: 100%;
-    aspect-ratio: 1;
-    background: var(--cream);
-    border: 4px solid var(--panel-dark);
-    overflow: hidden;
-  }
+    .pixel-btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: none;
+    }
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+    .pixel-btn.secondary {
+      background: var(--accent-2);
+    }
 
-  .caption {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 8px;
-    font-size: 12px;
-  }
+    .photo-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--cream);
+      border: 5px solid var(--panel-dark);
+      overflow: hidden;
+    }
 
-  .controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-top: 8px;
-  }
+    .photo-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(45deg, rgba(77,59,47,0.06) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(77,59,47,0.06) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(77,59,47,0.06) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(77,59,47,0.06) 75%);
+      background-size: 18px 18px;
+      background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
+      pointer-events: none;
+      z-index: 1;
+    }
 
-  .settings {
-    display: none;
-    margin-top: 10px;
-    background: var(--panel);
-    padding: 10px;
-    border: 3px solid var(--panel-dark);
-  }
+    #slide {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      image-rendering: auto;
+    }
 
-  .settings.open {
-    display: block;
-  }
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 22px;
+      font-weight: 900;
+      line-height: 1.45;
+      background: var(--cream);
+    }
 
-  input {
-    width: 100%;
-    padding: 6px;
-    margin-bottom: 8px;
-    border: 2px solid var(--ink);
-    background: var(--cream);
-  }
+    .caption-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 24px;
+      font-size: 13px;
+      font-weight: 900;
+    }
 
-</style>
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .settings {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      background: var(--panel);
+      border: 4px solid var(--panel-dark);
+    }
+
+    .settings.open {
+      display: block;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }
+
+    input {
+      width: 100%;
+      background: var(--cream);
+      border: 3px solid var(--ink);
+      color: var(--ink);
+      font-family: inherit;
+      padding: 8px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    .hint,
+    .tiny {
+      font-size: 11px;
+      line-height: 1.45;
+      margin: 8px 0 0;
+      font-weight: 700;
+    }
+
+    .status {
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 10px;
+      font-weight: 900;
+    }
+
+    .status.error {
+      color: var(--error);
+    }
+
+    .status.success {
+      color: var(--success);
+    }
+  </style>
 </head>
 
 <body>
+  <main class="widget">
+    <section class="topbar">
+      <div class="title"> ★ momentos antes de bloquearnos ★</div>
+      <button class="pixel-btn secondary" id="settingsBtn" type="button">edit</button>
+    </section>
 
-<div class="widget">
+    <section class="photo-wrap" aria-live="polite">
+      <img id="slide" alt="Google Photos album image" />
+      <div class="empty-state" id="emptyState">
+        paste your Google Photos album link below ✿
+      </div>
+    </section>
 
-  <div class="topbar">
-    <div class="title">🌿 memories</div>
-    <button id="editBtn">edit</button>
-  </div>
+    <section class="caption-row">
+      <span id="caption">no album loaded</span>
+      <span id="counter">0/0</span>
+    </section>
 
-  <div class="photo-wrap">
-    <img id="img" />
-  </div>
+    <section class="controls">
+      <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
+      <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
+    </section>
 
-  <div class="caption">
-    <span id="caption">no album</span>
-    <span id="counter">0/0</span>
-  </div>
+    <section class="settings" id="settingsPanel">
+      <label for="albumUrl">Google Photos shared album link</label>
+      <input id="albumUrl" placeholder="https://photos.app.goo.gl/..." />
+      <button class="pixel-btn" id="loadAlbumBtn" type="button">load album</button>
 
-  <div class="controls">
-    <button id="prev">◀</button>
-    <button id="next">▶</button>
-  </div>
+      <p class="hint">
+        Use previous/next to change the shared picture for everyone.
+      </p>
 
-  <div class="settings" id="settings">
-    <input id="albumInput" placeholder="paste google photos link" />
-    <button id="load">load album</button>
-  </div>
+      <div class="status" id="status"></div>
+      <div class="tiny">Tip: hide the edit panel after loading the album.</div>
+    </section>
+  </main>
 
-</div>
+  <script>
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+      document.getElementById("settingsPanel").classList.toggle("open");
+    });
+  </script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
-  authDomain: "slideshow-b78c0.firebaseapp.com",
-  projectId: "slideshow-b78c0",
-  storageBucket: "slideshow-b78c0.firebasestorage.app",
-  messagingSenderId: "50555124539",
-  appId: "1:50555124539:web:d240531a52bcd5ea60551e",
-  measurementId: "G-7WB37JRGZJ"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
+      authDomain: "slideshow-b78c0.firebaseapp.com",
+      projectId: "slideshow-b78c0",
+      storageBucket: "slideshow-b78c0.firebasestorage.app",
+      messagingSenderId: "50555124539",
+      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
+      measurementId: "G-7WB37JRGZJ"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+   const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
+    const WIDGET_ID = "main-widget";
 
-const ref = doc(db, "photoWidgets", "widget2");
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
 
-const ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
+    const el = {
+      albumUrl: document.getElementById("albumUrl"),
+      loadAlbumBtn: document.getElementById("loadAlbumBtn"),
+      status: document.getElementById("status"),
+      slide: document.getElementById("slide"),
+      emptyState: document.getElementById("emptyState"),
+      caption: document.getElementById("caption"),
+      counter: document.getElementById("counter"),
+      prevBtn: document.getElementById("prevBtn"),
+      nextBtn: document.getElementById("nextBtn")
+    };
 
-let photos = [];
-let index = 0;
+    let photos = [];
+    let currentIndex = 0;
+    let applyingRemoteUpdate = false;
 
-const img = document.getElementById("img");
-const caption = document.getElementById("caption");
-const counter = document.getElementById("counter");
+    function setStatus(message, type = "") {
+      el.status.textContent = message;
+      el.status.className = type ? `status ${type}` : "status";
+    }
 
-function render(i){
-  if(!photos.length) return;
-  index = (i+photos.length)%photos.length;
-  img.src = photos[index].url;
-  caption.textContent = photos[index].caption;
-  counter.textContent = `${index+1}/${photos.length}`;
-}
+    function normalizePhotoList(items) {
+      return items
+        .map((item, index) => {
+          if (typeof item === "string") {
+            return {
+              url: item,
+              caption: `fotito ${index + 1}`
+            };
+          }
 
-async function setIndex(i){
-  await updateDoc(ref,{ currentIndex:i });
-}
+          return {
+            url: item.url,
+            caption: item.caption || `photo ${index + 1}`
+          };
+        })
+        .filter((item) => item.url && item.url.startsWith("http"));
+    }
 
-document.getElementById("prev").onclick=()=>setIndex(index-1);
-document.getElementById("next").onclick=()=>setIndex(index+1);
+    function safeIndex(index) {
+      if (!photos.length) return 0;
+      return ((index % photos.length) + photos.length) % photos.length;
+    }
 
-document.getElementById("editBtn").onclick=()=>{
-  document.getElementById("settings").classList.toggle("open");
-};
+    async function ensureDocumentExists() {
+      const snap = await getDoc(widgetRef);
 
-document.getElementById("load").onclick=async ()=>{
-  const url = document.getElementById("albumInput").value;
+      if (!snap.exists()) {
+        await setDoc(widgetRef, {
+          photos: [],
+          currentIndex: 0,
+          albumUrl: "",
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
 
-  const res = await fetch(`${ENDPOINT}?url=${encodeURIComponent(url)}`);
-  const data = await res.json();
+    function render(index) {
+      if (!photos.length) {
+        el.emptyState.style.display = "grid";
+        el.slide.removeAttribute("src");
+        el.caption.textContent = "no album loaded";
+        el.counter.textContent = "0/0";
+        return;
+      }
 
-  await setDoc(ref,{
-    photos:data.photos,
-    currentIndex:0
-  });
-};
+      currentIndex = safeIndex(index);
+      const current = photos[currentIndex];
 
-onSnapshot(ref,(snap)=>{
-  const data = snap.data();
-  photos = data.photos || [];
-  render(data.currentIndex || 0);
-});
+      el.emptyState.style.display = "none";
+      el.slide.src = current.url;
+      el.caption.textContent = current.caption;
+      el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
+    }
 
-</script>
+    async function updateSharedIndex(index) {
+      if (!photos.length || applyingRemoteUpdate) return;
 
+      await updateDoc(widgetRef, {
+        currentIndex: safeIndex(index),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    async function loadAlbum() {
+      const albumUrl = el.albumUrl.value.trim();
+
+      if (!albumUrl) {
+        setStatus("Paste a Google Photos album link first.", "error");
+        return;
+      }
+
+      try {
+        setStatus("Loading album...");
+
+        const response = await fetch(`${ALBUM_ENDPOINT}?url=${encodeURIComponent(albumUrl)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load album.");
+        }
+
+        const loadedPhotos = normalizePhotoList(data.photos || []);
+
+        if (!loadedPhotos.length) {
+          throw new Error("No photos found in this album.");
+        }
+
+        await setDoc(widgetRef, {
+          photos: loadedPhotos,
+          currentIndex: 0,
+          albumUrl,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        setStatus(`Album loaded: ${loadedPhotos.length} photos.`, "success");
+      } catch (error) {
+        setStatus(error.message, "error");
+      }
+    }
+
+    el.loadAlbumBtn.addEventListener("click", loadAlbum);
+    el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
+    el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
+
+    await ensureDocumentExists();
+
+    onSnapshot(widgetRef, (snap) => {
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+
+      applyingRemoteUpdate = true;
+      photos = normalizePhotoList(data.photos || []);
+      currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
+      el.albumUrl.value = data.albumUrl || "";
+      render(currentIndex);
+      applyingRemoteUpdate = false;
+    });
+  </script>
 </body>
 </html>
