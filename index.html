@@ -141,6 +141,12 @@
             color: var(--panel-dark);
             letter-spacing: 0.5px;
         }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 <body>
@@ -160,8 +166,8 @@
         </section>
 
         <section class="controls">
-            <button class="pixel-btn" id="prevBtn" type="button">◀ PREV</button>
-            <button class="pixel-btn" id="nextBtn" type="button">NEXT ▶</button>
+            <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
+            <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
         </section>
 
         <div class="status" id="status"></div>
@@ -180,9 +186,15 @@
             serverTimestamp
         } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-        // IMPORTANT: Change this ID for each widget in Notion!
-        // Example: "family-room", "kitchen", "bedroom", "office", etc.
-        const WIDGET_ID = "main";  // ← CHANGE THIS FOR EACH WIDGET!
+        // ============================================
+        // CHANGE THIS FOR EACH WIDGET!
+        // Examples: "kitchen", "bedroom", "office", "livingroom"
+        // ============================================
+        const WIDGET_ID = "main";  // ← CHANGE THIS FOR EACH WIDGET
+        
+        // IMPORTANT: Make sure this matches your album URL
+        const ALBUM_URL = "https://photos.app.goo.gl/cTebSdwRbX3nb1rU7";
+        // ============================================
 
         const firebaseConfig = {
             apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
@@ -194,7 +206,6 @@
         };
 
         const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
-        const ALBUM_URL = "https://photos.app.goo.gl/cTebSdwRbX3nb1rU7";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -202,6 +213,7 @@
         const albumRef = doc(db, "photoAlbums", "mainAlbum");
         const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
 
+        // DOM elements
         const el = {
             status: document.getElementById("status"),
             slide: document.getElementById("slide"),
@@ -213,12 +225,13 @@
             widgetIdBadge: document.getElementById("widgetIdBadge")
         };
 
+        // State
         let photos = [];
         let currentIndex = 0;
+        let isUpdatingFromSync = false;
         let isFetchingAlbum = false;
-        let hasTriedRefreshForCurrentImage = false;
 
-        // Show widget ID for debugging
+        // Show widget ID
         el.widgetIdBadge.textContent = `widget: ${WIDGET_ID}`;
 
         function setStatus(message, type = "") {
@@ -232,109 +245,116 @@
         }
 
         function normalizePhotoList(items) {
+            if (!items || !items.length) return [];
             return items
                 .map((item, index) => ({
-                    url: typeof item === "string" ? item : item.url,
+                    url: typeof item === "string" ? item : (item.url || ""),
                     caption: typeof item === "string"
                         ? `photo ${index + 1}`
-                        : item.caption || `photo ${index + 1}`
+                        : (item.caption || `photo ${index + 1}`)
                 }))
                 .filter(item => item.url && item.url.startsWith("http") && !item.url.includes("undefined"));
         }
 
         function safeIndex(index) {
             if (!photos.length) return 0;
-            return ((index % photos.length) + photos.length) % photos.length;
+            if (index < 0) return photos.length - 1;
+            if (index >= photos.length) return 0;
+            return index;
         }
 
-        function render() {
+        function updateDisplay() {
             if (!photos.length) {
                 el.emptyState.style.display = "grid";
-                el.emptyState.textContent = "loading album ✿";
+                el.emptyState.textContent = "no photos in album ✿";
                 el.slide.removeAttribute("src");
                 el.caption.textContent = "no album loaded";
                 el.counter.textContent = "0/0";
+                el.prevBtn.disabled = true;
+                el.nextBtn.disabled = true;
                 return;
             }
 
-            currentIndex = safeIndex(currentIndex);
-            const current = photos[currentIndex];
-
-            if (!current || !current.url) {
-                console.error("Invalid current photo:", current);
+            el.prevBtn.disabled = false;
+            el.nextBtn.disabled = false;
+            
+            const photo = photos[currentIndex];
+            if (!photo || !photo.url) {
+                console.error("Invalid photo at index", currentIndex, photo);
                 return;
             }
 
             el.emptyState.style.display = "grid";
             el.emptyState.textContent = "loading photo ✿";
 
-            const tester = new Image();
-            
-            // Clean the URL to ensure it works
-            let imageUrl = current.url;
-            if (!imageUrl.includes('=')) {
+            // Clean URL
+            let imageUrl = photo.url;
+            if (!imageUrl.includes('=') && !imageUrl.includes('w1600')) {
                 imageUrl = `${imageUrl}=w1600-h1600-no`;
             }
 
-            tester.onload = () => {
-                hasTriedRefreshForCurrentImage = false;
+            const img = new Image();
+            
+            img.onload = () => {
                 el.slide.src = imageUrl;
                 el.emptyState.style.display = "none";
-                el.caption.textContent = current.caption;
+                el.caption.textContent = photo.caption;
                 el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
-                setStatus("");
             };
-
-            tester.onerror = (error) => {
-                console.error("Image load error:", imageUrl, error);
+            
+            img.onerror = (error) => {
+                console.error("Failed to load image:", imageUrl, error);
                 el.emptyState.style.display = "grid";
-                el.emptyState.textContent = "refreshing photo ✿";
-                setStatus("photo URL expired — refreshing album...", "error");
-
-                if (!hasTriedRefreshForCurrentImage) {
-                    hasTriedRefreshForCurrentImage = true;
-                    fetchAndStoreAlbum();
-                } else {
-                    setStatus("This photo could not load. Try another one.", "error");
-                }
+                el.emptyState.textContent = "failed to load photo";
+                setStatus("Photo failed to load", "error");
             };
+            
+            img.src = imageUrl;
+        }
 
-            tester.src = imageUrl;
+        async function updateWidgetIndex(newIndex) {
+            if (!photos.length) return;
+            if (isUpdatingFromSync) return;
+            
+            const targetIndex = safeIndex(newIndex);
+            if (targetIndex === currentIndex) return;
+            
+            console.log(`[${WIDGET_ID}] Changing from ${currentIndex} to ${targetIndex}`);
+            setStatus(`loading photo ${targetIndex + 1}...`, "success");
+            
+            try {
+                await updateDoc(widgetRef, {
+                    currentIndex: targetIndex,
+                    updatedAt: serverTimestamp(),
+                    lastUpdatedBy: WIDGET_ID
+                });
+            } catch (error) {
+                console.error("Failed to update index:", error);
+                setStatus("Failed to change photo", "error");
+            }
         }
 
         async function ensureWidgetExists() {
             try {
                 const snap = await getDoc(widgetRef);
                 if (!snap.exists()) {
+                    console.log(`Creating new widget: ${WIDGET_ID}`);
                     await setDoc(widgetRef, {
                         currentIndex: 0,
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp(),
                         widgetName: WIDGET_ID
                     });
-                    console.log(`Created new widget: ${WIDGET_ID}`);
+                } else {
+                    // Load existing index
+                    const data = snap.data();
+                    if (data.currentIndex !== undefined) {
+                        currentIndex = data.currentIndex;
+                        console.log(`[${WIDGET_ID}] Loaded index: ${currentIndex}`);
+                    }
                 }
             } catch (error) {
                 console.error("Error ensuring widget exists:", error);
-            }
-        }
-
-        async function updateSharedIndex(nextIndex) {
-            if (!photos.length) return;
-            
-            const newIndex = safeIndex(nextIndex);
-            console.log(`Widget ${WIDGET_ID} changing to photo ${newIndex + 1}`);
-            
-            try {
-                await updateDoc(widgetRef, {
-                    currentIndex: newIndex,
-                    updatedAt: serverTimestamp(),
-                    lastActionBy: "widget_user"
-                });
-                setStatus(`Changed to photo ${newIndex + 1}`, "success");
-            } catch (error) {
-                console.error("Error updating index:", error);
-                setStatus("Failed to update photo", "error");
             }
         }
 
@@ -343,22 +363,13 @@
             isFetchingAlbum = true;
 
             try {
-                setStatus("loading fresh album URLs...");
+                setStatus("loading album from Google Photos...");
                 el.emptyState.style.display = "grid";
-                el.emptyState.textContent = "loading album ✿";
-
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 20000);
+                el.emptyState.textContent = "fetching album ✿";
 
                 const response = await fetch(
-                    `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}&t=${Date.now()}`,
-                    { 
-                        signal: controller.signal,
-                        headers: { 'Accept': 'application/json' }
-                    }
+                    `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}&t=${Date.now()}`
                 );
-
-                clearTimeout(timeout);
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -379,63 +390,86 @@
                 await setDoc(albumRef, {
                     photos: loadedPhotos,
                     albumUrl: ALBUM_URL,
-                    refreshedAt: Date.now(),
-                    updatedAt: serverTimestamp(),
+                    lastRefreshed: Date.now(),
+                    refreshedAt: serverTimestamp(),
                     totalPhotos: loadedPhotos.length
                 }, { merge: true });
 
-                setStatus(`✨ ${loadedPhotos.length} photos loaded ✨`, "success");
+                setStatus(`✅ ${loadedPhotos.length} photos loaded!`, "success");
+                console.log(`Loaded ${loadedPhotos.length} photos from album`);
             } catch (error) {
                 console.error("Fetch error:", error);
-                let errorMsg = error.message;
-                if (error.name === 'AbortError') {
-                    errorMsg = "Request timed out";
-                } else if (error.message.includes('Failed to fetch')) {
-                    errorMsg = "Cannot reach server";
-                }
-                setStatus(errorMsg, "error");
+                setStatus(`Error: ${error.message}`, "error");
                 el.emptyState.style.display = "grid";
-                el.emptyState.textContent = errorMsg;
+                el.emptyState.textContent = "failed to load album";
             } finally {
                 isFetchingAlbum = false;
             }
         }
 
-        // Event listeners for this specific widget
-        el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
-        el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
+        // Button click handlers
+        el.prevBtn.onclick = () => {
+            console.log(`[${WIDGET_ID}] Prev button clicked`);
+            updateWidgetIndex(currentIndex - 1);
+        };
+        
+        el.nextBtn.onclick = () => {
+            console.log(`[${WIDGET_ID}] Next button clicked`);
+            updateWidgetIndex(currentIndex + 1);
+        };
 
-        // Initialize this widget
-        await ensureWidgetExists();
-
-        // Listen for album photo changes
-        onSnapshot(albumRef, (snap) => {
-            if (!snap.exists()) {
-                photos = [];
-                render();
-                return;
+        // Initialize and start listeners
+        async function init() {
+            console.log(`Initializing widget: ${WIDGET_ID}`);
+            
+            // Ensure widget exists in Firestore
+            await ensureWidgetExists();
+            
+            // Listen for album changes (new photos)
+            onSnapshot(albumRef, (snap) => {
+                if (snap.exists()) {
+                    const newPhotos = normalizePhotoList(snap.data().photos || []);
+                    if (JSON.stringify(photos) !== JSON.stringify(newPhotos)) {
+                        console.log(`[${WIDGET_ID}] Album updated, ${newPhotos.length} photos`);
+                        photos = newPhotos;
+                        updateDisplay();
+                    }
+                } else {
+                    photos = [];
+                    updateDisplay();
+                }
+            });
+            
+            // Listen for index changes from other viewers of this widget
+            onSnapshot(widgetRef, (snap) => {
+                if (!snap.exists()) return;
+                
+                const data = snap.data();
+                const newIndex = data.currentIndex;
+                
+                if (newIndex !== undefined && newIndex !== currentIndex) {
+                    console.log(`[${WIDGET_ID}] Synced to photo ${newIndex + 1} from another viewer`);
+                    isUpdatingFromSync = true;
+                    currentIndex = newIndex;
+                    updateDisplay();
+                    setTimeout(() => { isUpdatingFromSync = false; }, 100);
+                }
+            });
+            
+            // Fetch album if needed
+            const albumSnap = await getDoc(albumRef);
+            if (!albumSnap.exists() || !albumSnap.data().photos) {
+                await fetchAndStoreAlbum();
+            } else {
+                photos = normalizePhotoList(albumSnap.data().photos || []);
+                updateDisplay();
+                // Refresh in background
+                fetchAndStoreAlbum();
             }
-            const newPhotos = normalizePhotoList(snap.data().photos || []);
-            if (JSON.stringify(photos) !== JSON.stringify(newPhotos)) {
-                photos = newPhotos;
-                render();
-            }
-        });
-
-        // Listen for index changes (syncs across all viewers of this widget)
-        onSnapshot(widgetRef, (snap) => {
-            if (!snap.exists()) return;
-            const data = snap.data();
-            const newIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
-            if (newIndex !== currentIndex) {
-                console.log(`Widget ${WIDGET_ID} synced to photo ${newIndex + 1}`);
-                currentIndex = newIndex;
-                render();
-            }
-        });
-
-        // Initial fetch
-        fetchAndStoreAlbum();
+        }
+        
+        // Start the app
+        init().catch(console.error);
     </script>
 </body>
 </html>
