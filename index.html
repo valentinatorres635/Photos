@@ -157,11 +157,11 @@
 
         <section class="photo-wrap" aria-live="polite">
             <img id="slide" alt="Google Photos album image" />
-            <div class="empty-state" id="emptyState">loading album ✿</div>
+            <div class="empty-state" id="emptyState">La paciencia es virtud de sabios</div>
         </section>
 
         <section class="caption-row">
-            <span id="caption">loading</span>
+            <span id="caption">espera porfis</span>
             <span id="counter">0/0</span>
         </section>
 
@@ -251,7 +251,7 @@
                     url: typeof item === "string" ? item : (item.url || ""),
                     caption: typeof item === "string"
                         ? `photo ${index + 1}`
-                        : (item.caption || `photo ${index + 1}`)
+                        : (item.caption || `fotito ${index + 1}`)
                 }))
                 .filter(item => item.url && item.url.startsWith("http") && !item.url.includes("undefined"));
         }
