@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pixel Widget</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Google Photos Widget</title>
 
   <style>
     :root {
@@ -12,169 +12,342 @@
       --panel-dark: #9bb89f;
       --ink: #3f5c45;
       --accent: #b7d3b0;
+      --accent-2: #cfe5c9;
       --cream: #f7fbf7;
       --shadow: #7c9a83;
       --error: #9d4b42;
+      --success: #5f7f5f;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: transparent;
+      font-family: "Courier New", Courier, monospace;
+      color: var(--ink);
     }
 
     body {
-      margin: 0;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      font-family: monospace;
-      background: transparent;
-    }
-
-    .widget {
-      width: 360px;
-      background: var(--bg);
-      border: 6px solid var(--ink);
-      box-shadow: 8px 8px 0 var(--shadow);
       padding: 12px;
     }
 
+    .widget {
+      width: min(100%, 390px);
+      background: var(--bg);
+      border: 6px solid var(--ink);
+      box-shadow: 8px 8px 0 var(--shadow);
+      padding: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
     .title {
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: lowercase;
       text-align: center;
-      font-weight: bold;
-      margin-bottom: 10px;
     }
 
-    .photo {
+    .photo-wrap {
+      position: relative;
       width: 100%;
-      aspect-ratio: 1;
-      border: 4px solid var(--panel-dark);
+      aspect-ratio: 1 / 1;
       background: var(--cream);
+      border: 5px solid var(--panel-dark);
+      overflow: hidden;
     }
 
-    img {
+    #slide {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 22px;
+      font-weight: 900;
+      line-height: 1.45;
+      background: var(--cream);
+      z-index: 2;
+    }
+
+    .caption-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 24px;
+      font-size: 13px;
+      font-weight: 900;
     }
 
     .controls {
-      display: flex;
-      gap: 6px;
-      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
     }
 
-    button {
-      flex: 1;
-      padding: 6px;
+    .pixel-btn {
       background: var(--accent);
-      border: 2px solid var(--ink);
+      border: 3px solid var(--ink);
+      color: var(--ink);
+      font-family: inherit;
+      font-weight: 900;
+      padding: 7px 10px;
       cursor: pointer;
+      box-shadow: 3px 3px 0 var(--shadow);
+      border-radius: 0;
+    }
+
+    .pixel-btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: none;
     }
 
     .status {
-      font-size: 10px;
+      font-size: 11px;
+      line-height: 1.45;
+      margin-top: 10px;
+      font-weight: 900;
       text-align: center;
-      margin-top: 6px;
     }
+
+    .status.error { color: var(--error); }
+    .status.success { color: var(--success); }
   </style>
 </head>
 
 <body>
+  <main class="widget">
+    <section class="topbar">
+      <div class="title">❦ momentos antes de bloquearnos ❦</div>
+    </section>
 
-<div class="widget">
-  <div class="title">🌿 memories</div>
+    <section class="photo-wrap" aria-live="polite">
+      <img id="slide" alt="Google Photos album image" />
+      <div class="empty-state" id="emptyState">loading album ✿</div>
+    </section>
 
-  <div class="photo">
-    <img id="img">
-  </div>
+    <section class="caption-row">
+      <span id="caption">loading</span>
+      <span id="counter">0/0</span>
+    </section>
 
-  <div class="controls">
-    <button id="prev">◀</button>
-    <button id="next">▶</button>
-  </div>
+    <section class="controls">
+      <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
+      <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
+    </section>
 
-  <div class="status" id="status"></div>
-</div>
+    <div class="status" id="status"></div>
+  </main>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "PASTE",
-  authDomain: "slideshow-b78c0.firebaseapp.com",
-  projectId: "slideshow-b78c0",
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
+      authDomain: "slideshow-b78c0.firebaseapp.com",
+      projectId: "slideshow-b78c0",
+      storageBucket: "slideshow-b78c0.firebasestorage.app",
+      messagingSenderId: "50555124539",
+      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
+      measurementId: "G-7WB37JRGZJ"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
 
-// 🔥 CHANGE ONLY THIS PER WIDGET
-const WIDGET_ID = "main";
+    // Paste your Google Photos shared album link here.
+    const ALBUM_URL = "https://photos.app.goo.gl/cTebSdwRbX3nb1rU7";
 
-// 🔥 PASTE YOUR GOOGLE PHOTOS LINK HERE
-const ALBUM_URL = "https://photos.app.goo.gl/cTebSdwRbX3nb1rU7";
+    // Change this for each separate widget: "main", "widget2", "widget3", etc.
+    const WIDGET_ID = "main";
 
-// 🔥 FUNCTION URL
-const ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-const albumRef = doc(db, "photoAlbums", "mainAlbum");
-const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
+    const albumRef = doc(db, "photoAlbums", "mainAlbum");
+    const widgetRef = doc(db, "photoWidgets", WIDGET_ID);
 
-let photos = [];
-let index = 0;
+    const el = {
+      status: document.getElementById("status"),
+      slide: document.getElementById("slide"),
+      emptyState: document.getElementById("emptyState"),
+      caption: document.getElementById("caption"),
+      counter: document.getElementById("counter"),
+      prevBtn: document.getElementById("prevBtn"),
+      nextBtn: document.getElementById("nextBtn")
+    };
 
-const img = document.getElementById("img");
-const status = document.getElementById("status");
+    let photos = [];
+    let currentIndex = 0;
 
-function render() {
-  if (!photos.length) return;
-  index = (index + photos.length) % photos.length;
-  img.src = photos[index].url;
-}
-
-async function loadAlbum() {
-  try {
-    status.textContent = "loading...";
-
-    const res = await fetch(`${ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}`);
-    const data = await res.json();
-
-    if (!data.photos || !data.photos.length) {
-      throw new Error("no photos");
+    function setStatus(message, type = "") {
+      el.status.textContent = message;
+      el.status.className = type ? `status ${type}` : "status";
     }
 
-    await setDoc(albumRef, { photos: data.photos });
+    function normalizePhotoList(items) {
+      return items
+        .map((item, index) => ({
+          url: typeof item === "string" ? item : item.url,
+          caption: typeof item === "string" ? `photo ${index + 1}` : item.caption || `photo ${index + 1}`
+        }))
+        .filter(item => item.url && item.url.startsWith("http"));
+    }
 
-    status.textContent = "loaded";
-  } catch (e) {
-    console.error(e);
-    status.textContent = "error loading album";
-  }
-}
+    function safeIndex(index) {
+      if (!photos.length) return 0;
+      return ((index % photos.length) + photos.length) % photos.length;
+    }
 
-async function ensureWidget() {
-  const snap = await getDoc(widgetRef);
-  if (!snap.exists()) {
-    await setDoc(widgetRef, { currentIndex: 0 });
-  }
-}
+    function render() {
+      if (!photos.length) {
+        el.emptyState.style.display = "grid";
+        el.slide.removeAttribute("src");
+        el.caption.textContent = "no album loaded";
+        el.counter.textContent = "0/0";
+        return;
+      }
 
-document.getElementById("prev").onclick = () => updateDoc(widgetRef, { currentIndex: index - 1 });
-document.getElementById("next").onclick = () => updateDoc(widgetRef, { currentIndex: index + 1 });
+      currentIndex = safeIndex(currentIndex);
+      const current = photos[currentIndex];
 
-onSnapshot(albumRef, snap => {
-  if (!snap.exists()) return;
-  photos = snap.data().photos || [];
-  render();
-});
+      el.emptyState.style.display = "none";
+      el.slide.src = current.url;
+      el.caption.textContent = current.caption;
+      el.counter.textContent = `${currentIndex + 1}/${photos.length}`;
+    }
 
-onSnapshot(widgetRef, snap => {
-  if (!snap.exists()) return;
-  index = snap.data().currentIndex || 0;
-  render();
-});
+    async function ensureWidgetExists() {
+      const snap = await getDoc(widgetRef);
+      if (!snap.exists()) {
+        await setDoc(widgetRef, {
+          currentIndex: 0,
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
 
-await ensureWidget();
-await loadAlbum();
-</script>
+    async function updateSharedIndex(nextIndex) {
+      if (!photos.length) return;
+      await updateDoc(widgetRef, {
+        currentIndex: safeIndex(nextIndex),
+        updatedAt: serverTimestamp()
+      });
+    }
 
+    async function loadSharedAlbumIfNeeded() {
+      if (!ALBUM_URL || ALBUM_URL.includes("PASTE_")) {
+        setStatus("Add ALBUM_URL inside the HTML file.", "error");
+        el.emptyState.textContent = "missing album link";
+        return;
+      }
+
+      // Skip fetch if this album is already cached in Firebase
+      const albumSnap = await getDoc(albumRef);
+      const currentAlbumUrl = albumSnap.exists() ? albumSnap.data().albumUrl : "";
+      const currentPhotos = albumSnap.exists()
+        ? normalizePhotoList(albumSnap.data().photos || [])
+        : [];
+
+      if (currentAlbumUrl === ALBUM_URL && currentPhotos.length) {
+        return; // Already up to date — no need to re-fetch
+      }
+
+      try {
+        setStatus("Loading shared album...");
+        el.emptyState.textContent = "loading album ✿";
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(
+          `${ALBUM_ENDPOINT}?url=${encodeURIComponent(ALBUM_URL)}`,
+          { signal: controller.signal }
+        );
+
+        clearTimeout(timeout);
+
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("Firebase returned HTML instead of JSON. Check the function URL.");
+        }
+
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load album.");
+        }
+
+        const loadedPhotos = normalizePhotoList(data.photos || []);
+
+        if (!loadedPhotos.length) {
+          throw new Error("No photos found. Check if the Google Photos album is shared publicly.");
+        }
+
+        await setDoc(albumRef, {
+          photos: loadedPhotos,
+          albumUrl: ALBUM_URL,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        setStatus(`Album loaded: ${loadedPhotos.length} photos.`, "success");
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message, "error");
+        el.emptyState.textContent = error.message;
+      }
+    }
+
+    el.prevBtn.addEventListener("click", () => updateSharedIndex(currentIndex - 1));
+    el.nextBtn.addEventListener("click", () => updateSharedIndex(currentIndex + 1));
+
+    await ensureWidgetExists();
+
+    onSnapshot(albumRef, (snap) => {
+      if (!snap.exists()) { photos = []; render(); return; }
+      photos = normalizePhotoList(snap.data().photos || []);
+      render();
+    });
+
+    onSnapshot(widgetRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      currentIndex = Number.isInteger(data.currentIndex) ? data.currentIndex : 0;
+      render();
+    });
+
+    loadSharedAlbumIfNeeded();
+  </script>
 </body>
 </html>
