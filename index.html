@@ -176,7 +176,7 @@
 <body>
   <main class="widget">
     <section class="topbar">
-      <div class="title">🌿 memories</div>
+      <div class="title">❧ momentos antes de bloquearnos </div>
       <button class="pixel-btn secondary" id="settingsBtn" type="button">edit</button>
     </section>
 
@@ -191,18 +191,14 @@
     </section>
 
     <section class="controls">
-      <button class="pixel-btn" id="prevBtn" type="button">◀ previous</button>
-      <button class="pixel-btn" id="nextBtn" type="button">next ▶</button>
+      <button class="pixel-btn" id="prevBtn" type="button">◀ </button>
+      <button class="pixel-btn" id="nextBtn" type="button"> ▶</button>
     </section>
 
     <section class="settings" id="settingsPanel">
       <label for="albumUrl">Google Photos shared album link</label>
       <input id="albumUrl" placeholder="https://photos.app.goo.gl/..." />
       <button class="pixel-btn" id="loadAlbumBtn" type="button">load shared album</button>
-
-      <p class="hint">
-        Album is shared globally. Each widget keeps its own selected picture.
-      </p>
 
       <div class="status" id="status"></div>
       <div class="tiny">Change WIDGET_ID for each separate widget.</div>
@@ -228,12 +224,13 @@
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "PASTE_YOUR_API_KEY",
-      authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-      projectId: "PASTE_YOUR_PROJECT_ID",
-      storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-      messagingSenderId: "PASTE_YOUR_SENDER_ID",
-      appId: "PASTE_YOUR_APP_ID"
+      apiKey: "AIzaSyBH-JL6Y9LKN9oYy_lqUao6E_vh-kdawgU",
+      authDomain: "slideshow-b78c0.firebaseapp.com",
+      projectId: "slideshow-b78c0",
+      storageBucket: "slideshow-b78c0.firebasestorage.app",
+      messagingSenderId: "50555124539",
+      appId: "1:50555124539:web:d240531a52bcd5ea60551e",
+      measurementId: "G-7WB37JRGZJ"
     };
 
     const ALBUM_ENDPOINT = "https://us-central1-slideshow-b78c0.cloudfunctions.net/googlePhotosAlbum";
